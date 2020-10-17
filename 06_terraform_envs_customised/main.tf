@@ -1,17 +1,40 @@
-module "dev_cluster" {
-  source        = "./cluster"
-  cluster_name  = "dev"
-  instance_type = "t2.micro"
+module "ppd_cluster" {
+  # Pre-Prod cluster for dev, e2e, prf namespaces
+  source      = "./cluster"
+  cluster_env = "ppd"
+  domain      = "super.cash"
+  # https://medium.com/@swazza85/dealing-with-pod-density-limitations-on-eks-worker-nodes-137a12c8b218
+  # Total Pods per instance_type: https://github.com/awslabs/amazon-eks-ami/blob/master/files/eni-max-pods.txt
+  instance_type    = "t2.micro"
+  region           = "sa-east-1"
+  k8s_version      = 1.18
+  k8s_min_capacity = 1
+  k8s_max_capacity = 5
 }
 
-module "staging_cluster" {
-  source        = "./cluster"
-  cluster_name  = "staging"
-  instance_type = "t2.micro"
-}
+# module "stg_cluster" {
+#   source      = "./cluster"
+#   cluster_env = "stg"
+#   domain      = "super.cash"
+#   # https://medium.com/@swazza85/dealing-with-pod-density-limitations-on-eks-worker-nodes-137a12c8b218
+#   # Total Pods per instance_type: https://github.com/awslabs/amazon-eks-ami/blob/master/files/eni-max-pods.txt
+#   instance_type    = "t2.micro"
+#   region           = "sa-east-1"
+#   k8s_version      = 1.18
+#   k8s_min_capacity = 3
+#   k8s_max_capacity = 10
+# }
 
-module "production_cluster" {
-  source        = "./cluster"
-  cluster_name  = "production"
-  instance_type = "m5.large"
+module "prd_cluster" {
+  # Prod cluster for stg, prd namespaces
+  source      = "./cluster"
+  cluster_env = "prd"
+  domain      = "super.cash"
+  # https://medium.com/@swazza85/dealing-with-pod-density-limitations-on-eks-worker-nodes-137a12c8b218
+  # Total Pods per instance_type: https://github.com/awslabs/amazon-eks-ami/blob/master/files/eni-max-pods.txt
+  instance_type    = "t2.micro"
+  region           = "sa-east-1"
+  k8s_version      = 1.18
+  k8s_min_capacity = 3
+  k8s_max_capacity = 10
 }

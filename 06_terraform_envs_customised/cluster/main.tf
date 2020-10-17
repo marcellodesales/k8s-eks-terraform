@@ -1,5 +1,10 @@
+
+variable "region" {
+  default = "us-west-2"
+}
+
 provider "aws" {
-  region = "ap-south-1"
+  region = var.region
 }
 
 data "aws_eks_cluster" "cluster" {
@@ -10,8 +15,12 @@ data "aws_eks_cluster_auth" "cluster" {
   name = module.eks.cluster_id
 }
 
-variable "cluster_name" {
-  default = "my-cluster"
+variable "cluster_env" {
+  default = "my-env"
+}
+
+variable "domain" {
+  default = "my-product"
 }
 
 variable "instance_type" {
@@ -33,41 +42,53 @@ module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "2.47.0"
 
-  name                 = "k8s-${var.cluster_name}-vpc"
+  name                 = "k8s-${var.cluster_env}.${var.domain}-vpc"
   cidr                 = "172.16.0.0/16"
   azs                  = data.aws_availability_zones.available.names
-  private_subnets      = ["172.16.1.0/24", "172.16.2.0/24", "172.16.3.0/24"]
-  public_subnets       = ["172.16.4.0/24", "172.16.5.0/24", "172.16.6.0/24"]
+  private_subnets      = ["172.16.1.0/24", "172.16.3.0/24", "172.16.5.0/24"]
+  public_subnets       = ["172.16.2.0/24", "172.16.4.0/24", "172.16.6.0/24"]
   enable_nat_gateway   = true
   single_nat_gateway   = true
   enable_dns_hostnames = true
 
   public_subnet_tags = {
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-    "kubernetes.io/role/elb"                    = "1"
+    "kubernetes.io/cluster/${var.cluster_env}.${var.domain}" = "shared"
+    "kubernetes.io/role/elb"                                 = "1"
   }
 
   private_subnet_tags = {
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-    "kubernetes.io/role/internal-elb"           = "1"
+    "kubernetes.io/cluster/${var.cluster_env}.${var.domain}" = "shared"
+    "kubernetes.io/role/internal-elb"                        = "1"
   }
+}
+
+variable "k8s_version" {
+  default = 1.17
+}
+
+variable "k8s_max_capacity" {
+  default = 5
+}
+
+variable "k8s_min_capacity" {
+  default = 1
 }
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "12.2.0"
 
-  cluster_name    = "eks-${var.cluster_name}"
-  cluster_version = "1.17"
+  cluster_name    = "eks-${var.cluster_env}.${var.domain}"
+  cluster_version = var.k8s_version
   subnets         = module.vpc.private_subnets
 
   vpc_id = module.vpc.vpc_id
 
   node_groups = {
     first = {
-      desired_capacity = 1
-      max_capacity     = 10
-      min_capacity     = 1
+      desired_capacity = var.k8s_min_capacity
+      max_capacity     = var.k8s_max_capacity
+      min_capacity     = var.k8s_min_capacity
 
       instance_type = var.instance_type
     }
@@ -80,7 +101,7 @@ module "eks" {
 }
 
 resource "aws_iam_policy" "worker_policy" {
-  name        = "worker-policy-${var.cluster_name}"
+  name        = "worker-policy-${var.cluster_env}.${var.domain}"
   description = "Worker policy for the ALB Ingress"
 
   policy = file("iam-policy.json")
@@ -112,6 +133,6 @@ resource "helm_release" "ingress" {
   }
   set {
     name  = "clusterName"
-    value = var.cluster_name
+    value = "${var.cluster_env}.${var.domain}"
   }
 }
