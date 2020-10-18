@@ -1,18 +1,10 @@
 
 variable "region" {
-  default = "us-west-2"
+  default = "sa-east-1"
 }
 
 provider "aws" {
   region = var.region
-}
-
-data "aws_eks_cluster" "cluster" {
-  name = module.eks.cluster_id
-}
-
-data "aws_eks_cluster_auth" "cluster" {
-  name = module.eks.cluster_id
 }
 
 variable "cluster_env" {
@@ -25,6 +17,22 @@ variable "domain" {
 
 variable "instance_type" {
   default = "m5.large"
+}
+
+variable "k8s_manage_aws_auth" {
+  default = true
+}
+
+locals {
+  env_domain = "${replace(var.cluster_env, ".", "-")}-${replace(var.domain, ".", "-")}"
+}
+
+data "aws_eks_cluster" "cluster" {
+  name = module.eks.cluster_id
+}
+
+data "aws_eks_cluster_auth" "cluster" {
+  name = module.eks.cluster_id
 }
 
 provider "kubernetes" {
@@ -42,23 +50,23 @@ module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "2.47.0"
 
-  name                 = "k8s-${var.cluster_env}.${var.domain}-vpc"
+  name                 = "k8s-${local.env_domain}-vpc"
   cidr                 = "172.16.0.0/16"
   azs                  = data.aws_availability_zones.available.names
-  private_subnets      = ["172.16.1.0/24", "172.16.3.0/24", "172.16.5.0/24"]
-  public_subnets       = ["172.16.2.0/24", "172.16.4.0/24", "172.16.6.0/24"]
+  private_subnets      = ["172.16.1.0/24", "172.16.2.0/24", "172.16.3.0/24"]
+  public_subnets       = ["172.16.4.0/24", "172.16.5.0/24", "172.16.6.0/24"]
   enable_nat_gateway   = true
   single_nat_gateway   = true
   enable_dns_hostnames = true
 
   public_subnet_tags = {
-    "kubernetes.io/cluster/${var.cluster_env}.${var.domain}" = "shared"
-    "kubernetes.io/role/elb"                                 = "1"
+    "kubernetes.io/cluster/eks-${local.env_domain}" = "shared"
+    "kubernetes.io/role/elb"                        = "1"
   }
 
   private_subnet_tags = {
-    "kubernetes.io/cluster/${var.cluster_env}.${var.domain}" = "shared"
-    "kubernetes.io/role/internal-elb"                        = "1"
+    "kubernetes.io/cluster/eks-${local.env_domain}" = "shared"
+    "kubernetes.io/role/internal-elb"               = "1"
   }
 }
 
@@ -76,11 +84,13 @@ variable "k8s_min_capacity" {
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "12.2.0"
+  version = "13.0.0"
 
-  cluster_name    = "eks-${var.cluster_env}.${var.domain}"
+  cluster_name    = "eks-${local.env_domain}"
   cluster_version = var.k8s_version
-  subnets         = module.vpc.private_subnets
+  manage_aws_auth = var.k8s_manage_aws_auth
+
+  subnets = module.vpc.private_subnets
 
   vpc_id = module.vpc.vpc_id
 
@@ -101,10 +111,10 @@ module "eks" {
 }
 
 resource "aws_iam_policy" "worker_policy" {
-  name        = "worker-policy-${var.cluster_env}.${var.domain}"
+  name        = "worker-policy-${local.env_domain}"
   description = "Worker policy for the ALB Ingress"
 
-  policy = file("iam-policy.json")
+  policy = file("${path.module}/iam-policy-eks-worker.json")
 }
 
 provider "helm" {
@@ -133,6 +143,6 @@ resource "helm_release" "ingress" {
   }
   set {
     name  = "clusterName"
-    value = "${var.cluster_env}.${var.domain}"
+    value = "eks-${local.env_domain}"
   }
 }

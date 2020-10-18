@@ -13,6 +13,13 @@
     {
       "Effect": "Allow",
       "Action": [
+        "autoscaling:SetDesiredCapacity"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
         "ec2:AuthorizeSecurityGroupIngress",
         "ec2:CreateSecurityGroup",
         "ec2:CreateTags",
