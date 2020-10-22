@@ -40,16 +40,15 @@ provider "kubernetes" {
   cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority.0.data)
   token                  = data.aws_eks_cluster_auth.cluster.token
   load_config_file       = false
-  version                = "~> 1.11"
+  version                = ">= 1.13.2"
 }
 
 data "aws_availability_zones" "available" {
 }
 
 module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "2.47.0"
-
+  source               = "terraform-aws-modules/vpc/aws"
+  version              = "2.60.0"
   name                 = "k8s-${local.env_domain}-vpc"
   cidr                 = "172.16.0.0/16"
   azs                  = data.aws_availability_zones.available.names
@@ -118,7 +117,7 @@ resource "aws_iam_policy" "worker_policy" {
 }
 
 provider "helm" {
-  version = "1.3.1"
+  version = "1.3.2"
   kubernetes {
     host                   = data.aws_eks_cluster.cluster.endpoint
     cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority.0.data)
@@ -130,6 +129,7 @@ provider "helm" {
 resource "helm_release" "ingress" {
   name       = "ingress"
   chart      = "aws-alb-ingress-controller"
+  namespace  = "kube-system"
   repository = "http://storage.googleapis.com/kubernetes-charts-incubator"
   version    = "1.0.2"
 
