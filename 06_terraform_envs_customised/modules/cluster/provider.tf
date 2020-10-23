@@ -7,5 +7,26 @@ terraform {
   }
 }
 
-# https://github.com/hashicorp/terraform/issues/4390#issuecomment-234963443
-data "aws_caller_identity" "current" {} # used for accesing Account ID and ARN
+provider "aws" {
+  region = var.aws_region
+}
+
+provider "kubernetes" {
+  version = ">= 1.13.2"
+
+  host                   = data.aws_eks_cluster.cluster.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority.0.data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
+  load_config_file       = false
+}
+
+provider "helm" {
+  version = "1.3.2"
+
+  kubernetes {
+    host                   = data.aws_eks_cluster.cluster.endpoint
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority.0.data)
+    token                  = data.aws_eks_cluster_auth.cluster.token
+    load_config_file       = false
+  }
+}
