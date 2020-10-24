@@ -1,3 +1,6 @@
+# TODO: https://marcincuber.medium.com/amazon-eks-design-use-of-spot-instances-and-cluster-scaling-da7f3a72d061
+# https://appfleet.com/blog/autoscaling-an-eks-cluster/
+
 locals {
   autoscaler_name      = "cluster-autoscaler"
   autoscaler_namespace = "kube-system"
@@ -7,6 +10,7 @@ locals {
 # https://docs.aws.amazon.com/eks/latest/userguide/cluster-autoscaler.html#ca-deploy
 # https://gitlab.lukapo.com/terraform/aws/eks/module.eks-iam-cluster-autoscaler
 # If this does nt work https://github.com/lablabs/terraform-aws-eks-cluster-autoscaler/blob/master/examples/basic/main.tf#L43-L48
+# https://www.nickaws.net/aws/kubernetes/2018/07/04/EKS-cluster-autoscaling.html
 resource "aws_iam_role" "cluster_autoscaler" {
   name               = "${module.eks.cluster_id}-cluster-autoscaler"
   assume_role_policy = data.aws_iam_policy_document.cluster_autoscaler_oidc_assume.json
@@ -264,5 +268,19 @@ resource "helm_release" "cluster_autoscaler" {
   set {
     name  = "cluster-autoscaler.kubernetes.io/safe-to-evict"
     value = false
+  }
+}
+
+# https://medium.com/@manoj.bhagwat60/deploying-kubernetes-helm-charts-using-terraform-f76df4b0c46c
+resource "helm_release" "metric_server" {
+  name       = "metric-server"
+  repository = "https://charts.bitnami.com/bitnami"
+  chart      = "metrics-server"
+  namespace  = kubernetes_service_account.cluster_autoscaler.metadata.0.namespace
+  version    = "4.5.2"
+
+  set {
+    name  = "apiService.create"
+    value = "true"
   }
 }
